@@ -1,0 +1,213 @@
+title: "Scrubbing"
+author: "Mady"
+date: '2023-09-12'
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(comment = NA) #keeps out the hashtags in the knits
+options(scipen=999)#eliminates scientific notation
+```
+
+Rate-a-Recent-Course:  A ReCentering Psych Stats Exercise(https://spupsych.az1.qualtrics.com/jfe/form/SV_b2cClqAlLGQ6nLU)
+The study is approved by the Institutional Review Board at Seattle Pacific University (SPUIRB# 202102011, no expiration). 
+Details about the study, including an informed consent, are included at the link.
+
+While the majority of R objects and data you will need are created within the R script that sources the chapter, there are a few that cannot be created from within the R framework. Additionally, sometimes links fail.  All original materials are provided at the [Github site](https://github.com/lhbikos/ReC_MultivModel) that hosts the book. More detailed guidelines for ways to access all these materials are provided in the OER's [introduction](#ReCintro)
+
+```{r  tidy=TRUE, tidy.opts=list(width.cutoff=70), eval=FALSE}
+#will install the package if not already installed
+if(!require(qualtRics)){install.packages("qualtRics")}
+if(!require(tidyverse)){install.packages("tidyverse")}
+```
+## Research Vignette
+To provide first-hand experience as both the respondent and analyst for the same set of data, you were asked to complete a survey titled, [Rate-a-Recent-Course:  A ReCentering Psych Stats Exercise](https://spupsych.az1.qualtrics.com/jfe/form/SV_b2cClqAlLGQ6nLU). 
+
+## Working the Problem
+
+####Upload a .csv file
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+#bring back the simulated dat from a .csv file
+QTRX_df <- read.csv("QTRX_df230902b.csv", header = TRUE)
+```
+
+```{r  message=FALSE, WARNING=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+# the filter command is used when we are making inclusion/exclusion decisions about rows
+# != means do not include cases with "preview"
+
+#QTRX_df <- dplyr::filter(QTRX_df, DistributionChannel != "preview")
+
+#FYI, another way that doesn't use tidyverse, but gets the same result
+QTRX_df <- QTRX_df[!QTRX_df$DistributionChannel == "preview",]
+```
+
+APA Style, and in particular the Journal Article Reporting Standards (JARS) for quantitative research specify that we should report the frequency or percentages of missing data.  We would start our counting *after* eliminating the previews.  
+
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+# I created an object that lists how many rows/cases remain.
+# I used inline text below to update the text with the new number
+nrow(QTRX_df)
+```
+
+CAPTURING RESULTS FOR WRITING IT UP:  
+>>Data screening suggested that 107 individuals opened the survey link.
+Next let's filter in only those who consented to take the survey.  Because Qualtrics discontinued the survey for everyone who did not consent, we do not have to worry that their data is unintentionally included, but it can be useful to mention the number of non-consenters in the summary of missing data.
+
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+
+QTRX_df <-dplyr::filter(QTRX_df, Consent == 1)
+nrow(QTRX_df)
+```
+
+CAPTURING RESULTS FOR WRITING IT UP:  
+
+>>Data screening suggested that 107 individuals opened the survey link. Of those, 83 granted consent and proceeded into the survey items.
+
+In this particular study, the categories used to collect informtaion about race/ethnicity were U.S.-centric.  Thus, they were only shown if the respondent indicated that the course being rated was taught by an institution in the U.S. Therefore, an an additional inclusion criteria for this specific research model should be that the course was taught in the U.S.
+```{r }
+QTRX_df <-dplyr::filter(QTRX_df, USinst == 0)
+nrow(QTRX_df)
+```
+
+CAPTURING RESULTS FOR WRITING IT UP:  
+
+>>Data screening suggested that 107 individuals opened the survey link. Of those, 83 granted consent and proceeded into the survey items. A further inclusion criteria was that the course was taught in the U.S; 69 met this criteria.
+
+### Renaming Variables
+
+Even though we renamed the variables in Qualtrics, the loop-and-merge variables were auto-renamed such that they each started with a number. I cannot see how to rename these from inside Qualtrics. A potential problem is that, in R, when variable names start with numbers, they need to be surrounded with single quotation marks. I find it easier to rename them now. I used "i" to start the variable name to represent "instructor."
+
+The form of the *rename()* function is this:
+df_named <- rename(df_raw, NewName1 = OldName1)
+
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+#QTRX_df <- dplyr::rename(QTRX_df, iRace1 = '1_iRace', iRace2 = '2_iRace', iRace3 = '3_iRace', iRace4 = '4_iRace', iRace5 = '5_iRace', iRace6 = '6_iRace', iRace7 = '7_iRace', iRace8 = '8_iRace', iRace9 = '9_iRace', iRace10 = '10_iRace')
+```
+
+Also in Qualtrics, it was not possible to rename the variable (formatted with sliders) that asked respondents to estimate the proportion of classmates in each race-based category.  Using the codebook, we can do this now.  I will use "cm" to precede each variable name to represent "classmates."
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+#QTRX_df <- dplyr::rename(QTRX_df, cmBiMulti = Race_10, cmBlack = Race_1, cmNBPoC = Race_7, cmWhite = Race_8, cmUnsure = Race_2)
+```
+
+Let's also create an ID variable (different from the lengthy Qualtrics-issued ID) and then move it to the front of the distribution.
+```{r warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=70) }
+#Opening the tidyverse so that I can use pipes
+library(tidyverse)
+QTRX_df <- QTRX_df %>% dplyr::mutate(ID = row_number())
+
+#moving the ID number to the first column; requires 
+QTRX_df <- QTRX_df%>%dplyr::select(ID, everything())
+```
+
+### Downsizing the Dataframe
+
+Although researchers may differ in their approach, my tendency is to downsize the df to the variables I will be using in my study.  These could include variables in the model, demographic variables, and potentially auxiliary variables (i.e,. variables not in the model, but that might be used in the case of multiple imputation).  
+
+This particular survey did not collect demographic information, so that will not be used.  The model that I will demonstrate in this research vignette examines the the respondent's perceived campus climate for students who are Black, predicted by the the respondent's own campus belonging, and also the *structural diversity* [@lewis_black_2019] proportions of Black students in the classroom and BIPOC (Black, Indigenous, and people of color) instructional staff. 
+
+*I would like to assess the model by having the instructional staff variable to be the %Black instructional staff.  At the time that this lecture is being prepared, there is not sufficient Black representation in the staff to model this.* 
+
+The *select()* function can let us list the variables we want to retain.
+
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+#You can use the ":" to include all variables from the first to last variable in any sequence; I could have written this more efficiently.  I just like to "see" my scales and clusters of variables.
+
+Model_df <-(dplyr::select (QTRX_df, ID, iRace1, iRace2, iRace3, iRace4, iRace5, iRace6, iRace7, iRace8, iRace9, iRace10, cmBiMulti, cmBlack, cmNBPoC, cmWhite, cmUnsure, Belong_1:Belong_3, Blst_1:Blst_6))
+```
+
+It can be helpful to save outfile of progress as we go along.  Here I save this raw file. I will demonstrate how to save both .rds and .csv files.  
+
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+#to save the df as an .rds (think "R object") file on your computer; it should save in the same file as the .rmd file you are working with
+#saveRDS(Model_df, "BlackStntsModel230902.rds")
+#code to import that model we just saved
+#Model_df <- readRDS("BlackStntsModel230902.rds")
+```
+
+```{r tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+#write the simulated data as a .csv
+#write.table(Model_df, file="BlackStntsModel230902.csv", sep=",", col.names=TRUE, row.names=FALSE)
+#bring back the simulated data from a .csv file
+#Model_df <- read.csv("BlackStntsModel230902.csv", header = TRUE)
+```
+
+
+## Toward the APA Style Write-up
+
+Because we have been capturing the results as we have worked the problem, our results section is easy to assemble.
+
+### Method/Procedure
+
+>>Data screening suggested that 107 individuals opened the survey link. Of those, 83 granted consent and proceeded into the survey items. A further inclusion criteria was that the course was taught in the U.S; 69 met this criteria.
+
+
+## Practice Problems
+
+Starting with this chapter, the practice problems for this and the next two chapters (i.e., Scoring, Data Dx) are intended to be completed in a sequence. Whatever practice option(s) you choose, please
+
+* Use raw data that has some missingness (as a last resort you could manually delete some cells),
+* Includes at least 3 independent/predictor variables
+  - these could be categorically or continuously scaled
+  - at least one variable should require scoring. 
+* Include at least 1 dependent variable
+  - at this point in your learning it should be continuously scaled
+
+The three problems below are listed in the order of graded complexity. If you are just getting started, you may wish to start with the first problem. If you are more confident, choose the second or third option. You will likely encounter challenges that were not covered in this chapter. Search for and try out solutions, knowing that there are multiple paths through the analysis.
+
+### Problem #1: Rework the Chapter Problem
+
+Because the *Rate-a-Recent-Course* survey remains open, it is quite likely that there will be more participants who have taken the survey since this chapter was last updated. If not -- please encourage a peer to take it.  Even one additional response will change the results. This practice problem encourages you to rework the chapter, as written, with the updated data from the survey.
+
+### Problem #2:  Use the *Rate-a-Recent-Course* Survey, Choosing Different Variables
+
+Before starting this option, choose a minimum of three variables from the *Rate-a-Recent-Course* survey to include in a simple statistical model. Work through the chapter making decisions that are consistent with the research model you have proposed. There will likely be differences at several points in the process.  For example, you may wish to include (not exclude) data where the rated-course was offered by an institution outside the U.S. Different decisions may involve an internet search for the R script you will need as you decide on inclusion and exclusion criteria.
+
+### Problem #3:  Other data
+
+Using raw data for which you have access, use the chapter as a rough guide.  Your data will likely have unique characteristics that may involved searching for solutions beyond this chapter/OER.
+
+
+### Grading Rubric
+
+Regardless which option(s) you chose, use the elements in the grading rubric to guide you through the practice.
+
+
+|Assignment Component                                    | Points Possible| Points Earned|
+|:------------------------------------------------------ |:-------------: |:------------:|
+|1. Specify a research model that includes three predictor variables (continuously or categorically scaled) and one dependent (continuously scaled) variable                                         |      5         |    _____     | 
+|2. Import data                                          |      5         |    _____     |     
+|3. Include only those who consented$^*$                 |      5         |    _____     |
+|4. Apply exclusionary criteria $^*$                     |      5         |    _____     |  
+|5. Rename variables to be sensible and systematic $^*$  |      5         |    _____     |   
+|6. Downsize the dataframe to the variables of interest  |      5         |    _____     |    
+|7. Provide an APA style write-up of these preliminary steps|      5      |    _____     |
+|8. Explanation to grader                                |      5         |    _____     |
+|**Totals**                                              |      40        |    _____     |  
+
+$^*$ If your dataset does not require these steps, please provide example code that uses variables in your dataset. For example, for the inclusion or exclusion criteria, provide an example of how to filter in (or out) any variable on the basis of one of the response options. Once demonstrated, hashtag it out and rerun your script with those commands excluded.
+
+A *homeworked example* for the Scrubbing, Scoring, and DataDx lessons (combined) follows the [Data Dx](#DataDx) lesson.
+
+## Bonus Track: 
+
+![Image of a filmstrip](images/film-strip-1.jpg){#id .class width=620 height=211}
+
+### Importing data from an exported Qualtrics .csv file
+
+The lecture focused on the "intRavenous" import.  It is is also possible to download the Qualtrics data in a variety of formats (e.g., CSV, Excel, SPSS).  Since I got started using files with the CSV extension (think "Excel" lite), that is my preference.
+
+In Qualtrics, these are the steps to download the data:  Projects/YOURsurvey/Data & Analysis/Export & Import/Export data/CSV/Use numeric values
+
+I think that it is critical that to save this file in the same folder as the .rmd file that you will use with the data. 
+
+R is sensitive to characters used filenames  As downloaded, my Qualtrics .csv file had a long name with spaces and symbols that are not allowed.  Therore, I gave it a simple, sensible, filename, "ReC_Download210319.csv".  An idiosyncracy of mine is to datestamp filenames. I use two-digit representations of the year, month, and date so that if the letters preceding the date are the same, the files would alphabetize automatically.
+
+```{r  tidy=TRUE, tidy.opts=list(width.cutoff=70)}
+library(qualtRics)
+QTRX_csv <- read_survey("ReC_Download210319.csv", strip_html = TRUE, import_id = FALSE, time_zone=NULL, legacy = FALSE)
+```
+
+Although minor tweaking may be required, the same script above should be applicable to this version of the data.  
+
+```{r  include=FALSE}
+sessionInfo()
+```
